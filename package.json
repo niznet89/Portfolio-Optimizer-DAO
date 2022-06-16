@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/niznet89/Portfolio-Optimizer-DAO#readme",
   "dependencies": {
+    "@openzeppelin/contracts": "^4.6.0",
     "dotenv": "^16.0.1"
   },
   "devDependencies": {

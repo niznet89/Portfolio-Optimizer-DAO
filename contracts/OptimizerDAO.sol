@@ -11,6 +11,8 @@ contract OptimizerDAO {
   uint public tokenReserve;
   uint public treasuryEth;
 
+  mapping(string => uint) public assetWeightings;
+
   // Proposal struct of token, expected performance and confidence level.
   struct Proposal {
     uint date;

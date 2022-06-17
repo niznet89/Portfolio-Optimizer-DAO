@@ -18,22 +18,31 @@ contract OptimizerDAO {
   struct Proposal {
     uint date;
     // Maps Token (i.e 'btc') to array
-    mapping(string => uint[]) tokenWeightings;
+    mapping(string => uint[]) numOfUserTokens;
     // Maps Token string to array of total token amount
     mapping(string => uint[]) userWeightings;
-    mapping(string => uint[]) confidenceLevel;
+    mapping(string => uint[]) userConfidenceLevel;
     mapping(string => uint) proposalFinalPerformance;
     mapping(string => uint) proposalFinalConfidence;
   }
 
+  // Array of Proposals
+  Proposal[] public proposals;
+
 
   constructor(address _LPTokenAddress) {
     LPTokenAddress = _LPTokenAddress;
+    // On DAO creation, a vote/proposal is created which automatically creates a new one every x amount of time
+    Proposal storage proposal = proposals.push();
+    proposal.date = block.timestamp;
   }
+
+
 
   function joinDAO() public payable {
     // What is the minimum buy in for the DAO?
     require(msg.value > 1 ether);
+
     if (treasuryEth == 0) {
 
       // If there is nothing in the treasury, provide liquidity to treasury
@@ -51,6 +60,7 @@ contract OptimizerDAO {
     }
   }
 
+
   function leaveDAO() public {
     uint tokenBalance = ERC20(LPTokenAddress).balanceOf(msg.sender);
     require(tokenBalance > 0);
@@ -63,6 +73,7 @@ contract OptimizerDAO {
     treasuryEth -= ethToWithdraw;
   }
 
+
   function submbitVote(string[] memory _token, int[] memory _perfOfToken, uint[] memory _confidenceLevels) public onlyMember {
     // User inputs token they'd like to vote on, the expected performance of token over time period and their confidence level
     // Loop through each token in list and provide a +1 on list
@@ -72,28 +83,32 @@ contract OptimizerDAO {
     uint numberOfVoterTokens = ERC20(LPTokenAddress).balanceOf(msg.sender);
     for (uint i = 0; i < _token.length; i++) {
       // get each value out of array
-      latestProposal.userWeightings[_token[i]].push(_perfOfToken[i]);
-      latestProposal.tokenWeightings[_token[i]].push(numberOfVoterTokens[i]);
-      latestProposal.confidenceLevel[_token[i]].push(_confidenceLevels[i]);
+      proposals[proposals.length - 1].userWeightings[_token[i]].push(_perfOfToken[i]);
+      proposals[proposals.length - 1].numOfUserTokens[_token[i]].push(numberOfVoterTokens[i]);
+      proposals[proposals.length - 1].userConfidenceLevel[_token[i]].push(_confidenceLevels[i]);
 
     }
   }
 
-  function findTokenWeight(string memory _token) internal returns(uint) {
+
+  function findTokenWeight(string memory _token) public returns(uint) {
     uint sumOfLPForToken;
 
     uint numeratorToken;
     uint numeratorConfidence;
 
-    for (uint i = 0; i < latestProposal.tokenWeightings[_token].length; i++) {
-      sumOfLPForToken += latestProposal.tokenWeightings[_token][i];
-      numeratorToken += numberOfVoterTokens * _perfOfToken;
-      // numeratorConfidence += numberOfVoterTokens *
+    for (uint i = 0; i < proposals[proposals.length - 1].tokenWeightings[_token].length; i++) {
+      sumOfLPForToken += proposals[proposals.length - 1].tokenWeightings[_token][i];
+      numeratorToken += proposals[proposals.length - 1].numOfUserTokens[_token][i] * proposals[proposals.length - 1].userWeightings[_token][i];
+      numeratorConfidence += proposals[proposals.length - 1].numOfUserTokens[_token][i] * proposals[proposals.length - 1].userConfidenceLevel[_token][i];
     }
     uint weightedAveragePerformance = numeratorToken / sumOfLPForToken;
     uint weightedAverageConfidence = numeratorConfidence / sumOfLPForToken;
-    latestProposal.proposalFinalPerformance[_token] = weightedAveragePerformance;
-    latestProposal.proposalFinalConfidence[_token] = weightedAverageConfidence;
+    proposals[proposals.length - 1].proposalFinalPerformance[_token] = weightedAveragePerformance;
+    proposals[proposals.length - 1].proposalFinalConfidence[_token] = weightedAverageConfidence;
+
+    // Update Token weightings mapping
+    // initialize tradesOnUniswap function
 
   }
 

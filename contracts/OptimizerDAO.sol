@@ -3,8 +3,9 @@ pragma solidity ^0.8.0;
 
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "./TokenSwap.sol";
 
-contract OptimizerDAO is ERC20 {
+contract OptimizerDAO is tokenSwap, ERC20 {
   // May be able to delete membersTokenCount as tally is taken care of in ERC contract
   uint public treasuryEth;
 
@@ -122,7 +123,9 @@ contract OptimizerDAO is ERC20 {
 
 
   function initiateTradesOnUniswap() public {
-
+    // 1. On initial trade, deposit contract ETH into WETH
+    // 2. Take token weightings & swap WETH for for each token
+    // 3.
   }
 
   modifier onlyMember {

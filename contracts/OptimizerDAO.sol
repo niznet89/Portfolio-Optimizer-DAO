@@ -122,10 +122,17 @@ contract OptimizerDAO is tokenSwap, ERC20 {
   }
 
 
-  function initiateTradesOnUniswap() public {
+  function initiateTradesOnUniswap(uint[] memory _assets, uint[] memory _percentage) public {
     // 1. On initial trade, deposit contract ETH into WETH
     // 2. Take token weightings & swap WETH for for each token
     // 3.
+    (bool success, ) = WETH.call{value: address(this).balance}(abi.encodeWithSignature("deposit()"));
+    require(success);
+    // 2. Sell off existing tokens for WETH
+    // 3. Loop through assets & trade for tokens based on new weightings
+    // 4. Create new proposal
+    Proposal newProposal = proposals.push();
+    newProposal.date = block.timestamp;
   }
 
   modifier onlyMember {

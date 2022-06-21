@@ -62,15 +62,15 @@ interface IUniswapV2Factory {
 
 
 
-contract tokenSwap {
+contract TokenSwap {
 
     //address of the uniswap v2 router
-    address private constant UNISWAP_V2_ROUTER = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
+    address public constant UNISWAP_V2_ROUTER = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
 
     //address of WETH token.  This is needed because some times it is better to trade through WETH.
     //you might get a better price using WETH.
     //example trading from token A to WETH then WETH to token B might result in a better price
-    address private constant WETH = 0xc778417E063141139Fce010982780140Aa0cD5Ab;
+    address public constant WETH = 0xc778417E063141139Fce010982780140Aa0cD5Ab;
 
 
     //this swap function is used to trade from one token to another

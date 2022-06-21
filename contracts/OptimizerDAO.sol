@@ -3,13 +3,75 @@ pragma solidity ^0.8.0;
 
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "./TokenSwap.sol";
 
-contract OptimizerDAO is TokenSwap, ERC20 {
+
+
+interface IERC20Master {
+    function totalSupply() external view returns (uint);
+    function balanceOf(address account) external view returns (uint);
+    function transfer(address recipient, uint amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint);
+    function approve(address spender, uint amount) external returns (bool);
+    function transferFrom(
+        address sender,
+        address recipient,
+        uint amount
+    ) external returns (bool);
+    event Transfer(address indexed from, address indexed to, uint value);
+    event Approval(address indexed owner, address indexed spender, uint value);
+}
+
+
+//import the uniswap router
+//the contract needs to use swapExactTokensForTokens
+//this will allow us to import swapExactTokensForTokens into our contract
+
+interface IUniswapV2Router {
+  function getAmountsOut(uint256 amountIn, address[] memory path)
+    external
+    view
+    returns (uint256[] memory amounts);
+
+  function swapExactTokensForTokens(
+
+    //amount of tokens we are sending in
+    uint256 amountIn,
+    //the minimum amount of tokens we want out of the trade
+    uint256 amountOutMin,
+    //list of token addresses we are going to trade in.  this is necessary to calculate amounts
+    address[] calldata path,
+    //this is the address we are going to send the output tokens to
+    address to,
+    //the last time that the trade is valid for
+    uint256 deadline
+  ) external returns (uint256[] memory amounts);
+}
+
+interface IUniswapV2Pair {
+  function token0() external view returns (address);
+  function token1() external view returns (address);
+  function swap(
+    uint256 amount0Out,
+    uint256 amount1Out,
+    address to,
+    bytes calldata data
+  ) external;
+}
+
+interface IUniswapV2Factory {
+  function getPair(address token0, address token1) external returns (address);
+}
+
+
+
+contract OptimizerDAO is ERC20 {
   // May be able to delete membersTokenCount as tally is taken care of in ERC contract
   uint public treasuryEth;
   uint public startingEth;
   uint public lastSnapshotEth;
+
+  address private constant UNISWAP_V2_ROUTER = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
+  address private constant WETH = 0xc778417E063141139Fce010982780140Aa0cD5Ab;
 
   mapping(string => address) private tokenAddresses;
   // Address's included in mapping
@@ -45,8 +107,8 @@ contract OptimizerDAO is TokenSwap, ERC20 {
     // On DAO creation, a vote/proposal is created which automatically creates a new one every x amount of time
     Proposal storage proposal = proposals.push();
     proposal.date = block.timestamp;
-    string[5] memory _tokens = ['WETH', 'BAT', 'WBTC', 'UNI', 'MKR'];
-    string[5] memory _addresses = [0xc778417E063141139Fce010982780140Aa0cD5Ab, 0xDA5B056Cfb861282B4b59d29c9B395bcC238D29B, 0x0014F450B8Ae7708593F4A46F8fa6E5D50620F96, 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984, 0xF9bA5210F91D0474bd1e1DcDAeC4C58E359AaD85];
+    string[5] memory _tokens = ["WETH", "BAT", "WBTC", "UNI", "MKR"];
+    address[5] memory _addresses = [0xc778417E063141139Fce010982780140Aa0cD5Ab, 0xDA5B056Cfb861282B4b59d29c9B395bcC238D29B, 0x0014F450B8Ae7708593F4A46F8fa6E5D50620F96, 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984, 0xF9bA5210F91D0474bd1e1DcDAeC4C58E359AaD85];
     for (uint i = 0; i < _tokens.length; i++) {
       tokenAddresses[_tokens[i]] = _addresses[i];
     }
@@ -141,7 +203,7 @@ contract OptimizerDAO is TokenSwap, ERC20 {
   }
 
 
-  function initiateTradesOnUniswap(uint[] memory _assets, uint[] memory _percentage) public {
+  function initiateTradesOnUniswap(string[] memory _assets, uint[] memory _percentage) public {
     // 1. On initial trade, deposit contract ETH into WETH
     // 2. Take token weightings & swap WETH for for each token
     // 3.
@@ -150,34 +212,73 @@ contract OptimizerDAO is TokenSwap, ERC20 {
       (bool success, ) = WETH.call{value: address(this).balance}(abi.encodeWithSignature("deposit()"));
       require(success, "The transaction failed");
       for (uint i = 0; i < _assets.length; i++) {
-        swap(tokenAddresses[_assets[i]], tokenAddresses["WETH"], ERC20(tokenAddresses[_assets[i]]).balanceOf(this(address)), 0, address(this));
+        _swap(tokenAddresses[_assets[i]], tokenAddresses["WETH"], IERC20Master(tokenAddresses[_assets[i]]).balanceOf(this(address)), 0, address(this));
       }
       lastSnapshotEth = ERC20(tokenAddresses["WETH"]).balanceOf(address(this));
 
       for (uint i = 0; i < _assets.length; i++) {
-        uint memory allocation = _percentage[i] * ERC20(tokenAddresses["WETH"]).balanceOf(address(this));
-        swap(WETH, tokenAddresses[_assets[i]], allocation, 0, address(this));
+        uint allocation = _percentage[i] * ERC20(tokenAddresses["WETH"]).balanceOf(address(this));
+        _swap(WETH, tokenAddresses[_assets[i]], allocation, 0, address(this));
       }
       // 3. Loop through assets & trade for tokens based on new weightings
       // 4. Create new proposal
-      Proposal newProposal = proposals.push();
+      Proposal storage newProposal = proposals.push();
       newProposal.date = block.timestamp;
     } else {
       (bool success, ) = WETH.call{value: address(this).balance}(abi.encodeWithSignature("deposit()"));
       require(success, "The transaction failed");
 
       for (uint i = 0; i < _assets.length; i++) {
-        uint memory allocation = _percentage[i] * ERC20(tokenAddresses["WETH"]).balanceOf(address(this));
-        swap(WETH, tokenAddresses[_assets[i]], allocation, 0, address(this));
+        uint allocation = _percentage[i] * ERC20(tokenAddresses["WETH"]).balanceOf(address(this));
+        _swap(WETH, tokenAddresses[_assets[i]], allocation, 0, address(this));
       }
       // 3. Loop through assets & trade for tokens based on new weightings
       // 4. Create new proposal
-      Proposal newProposal = proposals.push();
+      Proposal storage newProposal = proposals.push();
       newProposal.date = block.timestamp;
 
     }
 
   }
+
+  //this swap function is used to trade from one token to another
+    //the inputs are self explainatory
+    //token in = the token address you want to trade out of
+    //token out = the token address you want as the output of this trade
+    //amount in = the amount of tokens you are sending in
+    //amount out Min = the minimum amount of tokens you want out of the trade
+    //to = the address you want the tokens to be sent to
+
+  function _swap(address _tokenIn, address _tokenOut, uint256 _amountIn, uint256 _amountOutMin, address _to) public {
+
+    //first we need to transfer the amount in tokens from the msg.sender to this contract
+    //this contract will have the amount of in tokens
+    IERC20Master(_tokenIn).transferFrom(msg.sender, address(this), _amountIn);
+
+    //next we need to allow the uniswapv2 router to spend the token we just sent to this contract
+    //by calling IERC20 approve you allow the uniswap contract to spend the tokens in this contract
+    IERC20Master(_tokenIn).approve(UNISWAP_V2_ROUTER, _amountIn);
+
+    //path is an array of addresses.
+    //this path array will have 3 addresses [tokenIn, WETH, tokenOut]
+    //the if statement below takes into account if token in or token out is WETH.  then the path is only 2 addresses
+    address[] memory path;
+    if (_tokenIn == WETH || _tokenOut == WETH) {
+      path = new address[](2);
+      path[0] = _tokenIn;
+      path[1] = _tokenOut;
+    } else {
+      path = new address[](3);
+      path[0] = _tokenIn;
+      path[1] = WETH;
+      path[2] = _tokenOut;
+    }
+        //then we will call swapExactTokensForTokens
+        //for the deadline we will pass in block.timestamp
+        //the deadline is the latest time the trade is valid for
+        IUniswapV2Router(UNISWAP_V2_ROUTER).swapExactTokensForTokens(_amountIn, _amountOutMin, path, _to, block.timestamp);
+    }
+
 
   modifier onlyMember {
       require(balanceOf(msg.sender) > 0);

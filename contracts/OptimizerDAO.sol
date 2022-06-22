@@ -96,8 +96,6 @@ contract OptimizerDAO is ERC20 {
     // Maps Token string to array of total token amount
     mapping(string => uint[]) userWeightings;
     mapping(string => uint[]) userConfidenceLevel;
-    mapping(string => uint) proposalFinalPerformance;
-    mapping(string => uint) proposalFinalConfidence;
   }
 
   // Array of Proposals
@@ -176,7 +174,7 @@ contract OptimizerDAO is ERC20 {
   // Event to emit for Python script to pick up data for model?
 
 
-
+  /**
   function findTokenWeight() public  {
     uint sumOfLPForToken;
 
@@ -202,7 +200,7 @@ contract OptimizerDAO is ERC20 {
     // initialize tradesOnUniswap function
 
   }
-
+  */
 
   function initiateTradesOnUniswap(string[] memory _assets, uint[] memory _percentage) public {
 

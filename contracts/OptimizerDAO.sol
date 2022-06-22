@@ -89,6 +89,7 @@ contract OptimizerDAO is ERC20 {
   // Proposal struct of token, expected performance and confidence level.
   struct Proposal {
     uint date;
+    uint endDate;
     string[] tokens;
     // Maps Token (i.e 'btc') to array
     mapping(string => uint[]) numOfUserTokens;
@@ -204,36 +205,42 @@ contract OptimizerDAO is ERC20 {
 
 
   function initiateTradesOnUniswap(string[] memory _assets, uint[] memory _percentage) public {
-    // 1. On initial trade, deposit contract ETH into WETH
-    // 2. Take token weightings & swap WETH for for each token
-    // 3.
-    // 2. Sell off existing tokens for WETH
+
     if (proposals.length > 0) {
-      (bool success, ) = WETH.call{value: address(this).balance}(abi.encodeWithSignature("deposit()"));
-      require(success, "The transaction failed");
+      // 1. Sell off existing holdings
       for (uint i = 0; i < _assets.length; i++) {
-        _swap(tokenAddresses[_assets[i]], tokenAddresses["WETH"], IERC20Master(tokenAddresses[_assets[i]]).balanceOf(this(address)), 0, address(this));
+        // Asset swapping from, to WETH, transfer whole balance, recipient is the SC
+        _swap(tokenAddresses[_assets[i]], tokenAddresses["WETH"], ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)), 0, address(this));
       }
+      // 2. Take a snapshot of the proceedings in WETH
       lastSnapshotEth = ERC20(tokenAddresses["WETH"]).balanceOf(address(this));
 
+      // 3. Convert any Eth in treasury to WETH
+      (bool success, ) = WETH.call{value: address(this).balance}(abi.encodeWithSignature("deposit()"));
+      require(success, "The transaction failed");
+
+      // 4. Reallocate all WETH based on new weightings
       for (uint i = 0; i < _assets.length; i++) {
         uint allocation = _percentage[i] * ERC20(tokenAddresses["WETH"]).balanceOf(address(this));
         _swap(WETH, tokenAddresses[_assets[i]], allocation, 0, address(this));
       }
-      // 3. Loop through assets & trade for tokens based on new weightings
+
       // 4. Create new proposal
       Proposal storage newProposal = proposals.push();
       newProposal.date = block.timestamp;
+
     } else {
+      // 1. If first Proposal, convert all Eth to WETH
       (bool success, ) = WETH.call{value: address(this).balance}(abi.encodeWithSignature("deposit()"));
       require(success, "The transaction failed");
 
+      // 2. Take asset weightings and purchase assets
       for (uint i = 0; i < _assets.length; i++) {
         uint allocation = _percentage[i] * ERC20(tokenAddresses["WETH"]).balanceOf(address(this));
         _swap(WETH, tokenAddresses[_assets[i]], allocation, 0, address(this));
       }
-      // 3. Loop through assets & trade for tokens based on new weightings
-      // 4. Create new proposal
+
+      // 3. Create new proposal
       Proposal storage newProposal = proposals.push();
       newProposal.date = block.timestamp;
 
@@ -253,11 +260,11 @@ contract OptimizerDAO is ERC20 {
 
     //first we need to transfer the amount in tokens from the msg.sender to this contract
     //this contract will have the amount of in tokens
-    IERC20Master(_tokenIn).transferFrom(msg.sender, address(this), _amountIn);
+    //IERC20Master(_tokenIn).transferFrom(msg.sender, address(this), _amountIn);
 
     //next we need to allow the uniswapv2 router to spend the token we just sent to this contract
     //by calling IERC20 approve you allow the uniswap contract to spend the tokens in this contract
-    IERC20Master(_tokenIn).approve(UNISWAP_V2_ROUTER, _amountIn);
+    ERC20(_tokenIn).approve(UNISWAP_V2_ROUTER, _amountIn);
 
     //path is an array of addresses.
     //this path array will have 3 addresses [tokenIn, WETH, tokenOut]

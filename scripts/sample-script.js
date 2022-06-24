@@ -47,7 +47,7 @@ async function main() {
   console.log(walletEth);
 
   ////
-  const sendUni = await optimizer.initiateTradesOnUniswap(["BAT", "WBTC", "UNI", "USDT", "sBAT"], [20,20,20,20,20]);
+  const sendUni = await optimizer.initiateTradesOnUniswap(["WETH", "BAT", "WBTC", "UNI", "USDT", "sWETH", "sBAT", "sWBTC", "sUNI", "sUSDT"], [10,10,10,10,10,10,10,10,10,10]);
   const reciept = await sendUni.wait();
 
 

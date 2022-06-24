@@ -3,6 +3,8 @@ pragma solidity ^0.8.0;
 
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
+
 
 
 
@@ -25,6 +27,13 @@ interface IERC20Master {
 //import the uniswap router
 //the contract needs to use swapExactTokensForTokens
 //this will allow us to import swapExactTokensForTokens into our contract
+
+
+interface WETH9 {
+  function balanceOf(address _address) external returns(uint256);
+
+  function deposit() external payable;
+}
 
 interface IUniswapV2Router {
   function getAmountsOut(uint256 amountIn, address[] memory path)
@@ -70,17 +79,18 @@ contract OptimizerDAO is ERC20 {
   uint public startingEth;
   uint public lastSnapshotEth;
 
-  address private constant UNISWAP_V2_ROUTER = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
+  address private constant UNISWAP_V2_ROUTER = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
   address private constant WETH = 0xc778417E063141139Fce010982780140Aa0cD5Ab;
+  ISwapRouter router = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
 
   mapping(string => address) private tokenAddresses;
   // Address's included in mapping
   /**
   address private constant WETH = 0xc778417E063141139Fce010982780140Aa0cD5Ab;
   address private constant BAT = 0xDA5B056Cfb861282B4b59d29c9B395bcC238D29B;
-  address private constant WBTC = 0x0014F450B8Ae7708593F4A46F8fa6E5D50620F96;
+  address private constant WBTC = 0x577D296678535e4903D59A4C929B718e1D575e0A;
   address private constant UNI = 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984;
-  address private constant MKR = 0xF9bA5210F91D0474bd1e1DcDAeC4C58E359AaD85;
+  address private constant USDT = 0x2fb298bdbef468638ad6653ff8376575ea41e768;
   */
 
   //
@@ -94,8 +104,10 @@ contract OptimizerDAO is ERC20 {
     // Maps Token (i.e 'btc') to array
     mapping(string => uint[]) numOfUserTokens;
     // Maps Token string to array of total token amount
-    mapping(string => uint[]) userWeightings;
+    mapping(string => uint[]) userViews;
     mapping(string => uint[]) userConfidenceLevel;
+    mapping(string => string[]) userViewsType;
+    mapping(string => string[]) userViewsRelativeToken;
   }
 
   // Array of Proposals
@@ -106,8 +118,8 @@ contract OptimizerDAO is ERC20 {
     // On DAO creation, a vote/proposal is created which automatically creates a new one every x amount of time
     Proposal storage proposal = proposals.push();
     proposal.date = block.timestamp;
-    string[5] memory _tokens = ["WETH", "BAT", "WBTC", "UNI", "MKR"];
-    address[5] memory _addresses = [0xc778417E063141139Fce010982780140Aa0cD5Ab, 0xDA5B056Cfb861282B4b59d29c9B395bcC238D29B, 0x0014F450B8Ae7708593F4A46F8fa6E5D50620F96, 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984, 0xF9bA5210F91D0474bd1e1DcDAeC4C58E359AaD85];
+    string[5] memory _tokens = ["WETH", "BAT", "WBTC", "UNI", "USDT"];
+    address[5] memory _addresses = [0xc778417E063141139Fce010982780140Aa0cD5Ab, 0xDA5B056Cfb861282B4b59d29c9B395bcC238D29B, 0x577D296678535e4903D59A4C929B718e1D575e0A, 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984, 0x2fB298BDbeF468638AD6653FF8376575ea41e768];
     for (uint i = 0; i < _tokens.length; i++) {
       tokenAddresses[_tokens[i]] = _addresses[i];
     }
@@ -117,7 +129,7 @@ contract OptimizerDAO is ERC20 {
 
   function joinDAO() public payable {
     // What is the minimum buy in for the DAO?
-    require(msg.value >= 1 ether, "Minimum buy in is 1 ether");
+    require(msg.value >= 41217007 gwei, "Minimum buy in is 0.1 ether");
 
     if (treasuryEth == 0) {
 
@@ -125,7 +137,7 @@ contract OptimizerDAO is ERC20 {
       // LP tokens are initially provided on a 1:1 basis
       treasuryEth = msg.value;
       startingEth = treasuryEth;
-      console.log(treasuryEth);
+
       // change to _mint
       _mint(msg.sender, treasuryEth);
 
@@ -153,7 +165,7 @@ contract OptimizerDAO is ERC20 {
   }
 
 
-  function submbitVote(string[] memory _token, uint[] memory _perfOfToken, uint[] memory _confidenceLevels) public onlyMember {
+  function submbitVote(string[] memory _token, uint[] memory _perfOfToken, uint[] memory _confidenceLevels, string[] memory _userViewsType, string[] memory _userViewsRelativeToken) public onlyMember {
     // User inputs token they'd like to vote on, the expected performance of token over time period and their confidence level
     // Loop through each token in list and provide a +1 on list
     // If token is in proposal, include in Struct and output average for Performance & confidence levels
@@ -163,12 +175,36 @@ contract OptimizerDAO is ERC20 {
     for (uint i = 0; i < _token.length; i++) {
       // get each value out of array
       proposals[proposals.length - 1].tokens.push(_token[i]);
-      proposals[proposals.length - 1].userWeightings[_token[i]].push(_perfOfToken[i]);
+      proposals[proposals.length - 1].userViews[_token[i]].push(_perfOfToken[i]);
 
       proposals[proposals.length - 1].numOfUserTokens[_token[i]].push(numberOfVoterTokens);
       proposals[proposals.length - 1].userConfidenceLevel[_token[i]].push(_confidenceLevels[i]);
+      proposals[proposals.length - 1].userViewsType[_token[i]].push(_userViewsType[i]);
+      proposals[proposals.length - 1].userViewsRelativeToken[_token[i]].push(_userViewsRelativeToken[i]);
 
     }
+  }
+
+  function getProposalVotes(string memory _token) public view returns (uint[] memory, uint[] memory, uint[] memory, string[] memory, string[] memory){
+      Proposal storage proposal = proposals[proposals.length - 1];
+      uint length = proposal.numOfUserTokens[_token].length;
+      uint[]  memory _numOfUserTokens = new uint[](length);
+      uint[]  memory _userViews = new uint[](length);
+      uint[]  memory _userConfidenceLevel = new uint[](length);
+      string[] memory _userViewsType = new string[](length);
+      string[] memory _userViewsRelativeToken = new string[](length);
+
+      for (uint i = 0; i < length; i++) {
+          console.log(proposal.numOfUserTokens[_token][i]);
+          _numOfUserTokens[i] = proposal.numOfUserTokens[_token][i];
+          _userViews[i] = proposal.userViews[_token][i];
+          _userConfidenceLevel[i] = proposal.userConfidenceLevel[_token][i];
+          _userViewsType[i] = proposal.userViewsType[_token][i];
+          _userViewsRelativeToken[i] = proposal.userViewsRelativeToken[_token][i];
+      }
+
+      return (_numOfUserTokens, _userViews, _userConfidenceLevel, _userViewsType, _userViewsRelativeToken);
+
   }
 
   // Event to emit for Python script to pick up data for model?
@@ -204,24 +240,25 @@ contract OptimizerDAO is ERC20 {
 
   function initiateTradesOnUniswap(string[] memory _assets, uint[] memory _percentage) public {
 
-    if (proposals.length > 0) {
+
+    if (proposals.length > 1) {
       // 1. Sell off existing holdings
       for (uint i = 0; i < _assets.length; i++) {
         // Asset swapping from, to WETH, transfer whole balance, recipient is the SC
-        _swap(tokenAddresses[_assets[i]], tokenAddresses["WETH"], ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)), 0, address(this));
+        _swap(tokenAddresses[_assets[i]], WETH, ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)), 0, address(this));
       }
       // 2. Take a snapshot of the proceedings in WETH
-      lastSnapshotEth = ERC20(tokenAddresses["WETH"]).balanceOf(address(this));
+      lastSnapshotEth = WETH9(WETH).balanceOf(address(this));
 
       // 3. Convert any Eth in treasury to WETH
-      (bool success, ) = WETH.call{value: address(this).balance}(abi.encodeWithSignature("deposit()"));
-      require(success, "The transaction failed");
+      WETH9(WETH).deposit{value: address(this).balance}();
 
       // 4. Reallocate all WETH based on new weightings
       for (uint i = 0; i < _assets.length; i++) {
-        uint allocation = _percentage[i] * ERC20(tokenAddresses["WETH"]).balanceOf(address(this));
+        uint allocation = _percentage[i] * lastSnapshotEth;
         _swap(WETH, tokenAddresses[_assets[i]], allocation, 0, address(this));
       }
+
 
       // 4. Create new proposal
       Proposal storage newProposal = proposals.push();
@@ -229,13 +266,33 @@ contract OptimizerDAO is ERC20 {
 
     } else {
       // 1. If first Proposal, convert all Eth to WETH
-      (bool success, ) = WETH.call{value: address(this).balance}(abi.encodeWithSignature("deposit()"));
-      require(success, "The transaction failed");
+      //ERC20(tokenAddresses["WETH"]).deposit(address(this).balance);
 
+      WETH9(WETH).deposit{value: address(this).balance}();
+
+      uint wethBalance = WETH9(WETH).balanceOf(address(this));
+      console.log(wethBalance);
+
+      /**
+      (bool success, ) = WETH9(WETH).call{value: address(this).balance}(abi.encodeWithSignature("deposit()"));
+      require(success, "The transaction failed");
+      console.log("this is an error");
+      (bool go, bytes memory output) = tokenAddresses["WETH"].call(abi.encodeWithSignature("balanceOf(address)", address(this)));
+      require(go);
+      console.log(go);
+      uint balance = abi.decode(output, (uint256));
+      console.log("hello");
+      console.log(balance);
+      */
       // 2. Take asset weightings and purchase assets
+
       for (uint i = 0; i < _assets.length; i++) {
-        uint allocation = _percentage[i] * ERC20(tokenAddresses["WETH"]).balanceOf(address(this));
+        uint allocation = (wethBalance * _percentage[i]) / 100;
+        console.log("allocation:");
+        console.log(allocation);
         _swap(WETH, tokenAddresses[_assets[i]], allocation, 0, address(this));
+        console.log(_assets[i]);
+        console.log(ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)));
       }
 
       // 3. Create new proposal
@@ -281,7 +338,9 @@ contract OptimizerDAO is ERC20 {
         //then we will call swapExactTokensForTokens
         //for the deadline we will pass in block.timestamp
         //the deadline is the latest time the trade is valid for
-        IUniswapV2Router(UNISWAP_V2_ROUTER).swapExactTokensForTokens(_amountIn, _amountOutMin, path, _to, block.timestamp);
+      //router.exactInput(ISwapRouter.ExactInputParams(path, address(this), block.timestamp, _amountIn, 0));
+      //IUniswapV2Router(UNISWAP_V2_ROUTER).ExactInputParams(path, address(this), block.timestamp, _amountIn, 0);
+      IUniswapV2Router(UNISWAP_V2_ROUTER).swapExactTokensForTokens(_amountIn, _amountOutMin, path, _to, block.timestamp);
     }
 
 

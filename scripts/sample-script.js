@@ -3,7 +3,15 @@
 //
 // When running the script with `npx hardhat run <script>` you'll find the Hardhat
 // Runtime Environment's members available in the global scope.
+const { Wallet } = require("ethers");
+const { ethers } = require("hardhat");
 const hre = require("hardhat");
+const wbtcAbi = require("./utils/wbtc.json");
+const wethAbi = require("./utils/weth.json");
+const uniAbi = require("./utils/uni.json");
+
+const provider = new ethers.providers.JsonRpcProvider("http://127.0.0.1:8545/");
+const wallet = new ethers.Wallet("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", provider);
 
 async function main() {
   // Hardhat always runs the compile task when running scripts with its command
@@ -14,12 +22,53 @@ async function main() {
   // await hre.run('compile');
 
   // We get the contract to deploy
-  const Greeter = await hre.ethers.getContractFactory("Greeter");
-  const greeter = await Greeter.deploy("Hello, Hardhat!");
+  const Optimizer = await hre.ethers.getContractFactory("OptimizerDAO");
+  const optimizer = await Optimizer.deploy();
 
-  await greeter.deployed();
+  await optimizer.deployed("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
 
-  console.log("Greeter deployed to:", greeter.address);
+
+  console.log("OptimizerDAO deployed to:", optimizer.address);
+
+  const join = await optimizer.joinDAO({ value: ethers.utils.parseEther("10") });
+
+
+
+
+
+  const weth = "0xc778417E063141139Fce010982780140Aa0cD5Ab";
+
+  const contract1 = new ethers.Contract(weth, wethAbi, wallet);
+
+  console.log("in the way");
+
+  let walletEth = await contract1.balanceOf(optimizer.address);
+
+  console.log(walletEth);
+
+  ////
+  const sendUni = await optimizer.initiateTradesOnUniswap(["BAT", "WBTC", "UNI", "USDT"], [25,25,25,25]);
+  const reciept = await sendUni.wait();
+
+
+  //console.log(reciept);
+  const wbtc = "0x0014F450B8Ae7708593F4A46F8fa6E5D50620F96";
+
+  const contract = new ethers.Contract(wbtc, wbtcAbi, wallet);
+
+  let walletBtc = await contract.balanceOf(optimizer.address);
+
+  const uni = "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984";
+
+  const uniContract = new ethers.Contract(uni, uniAbi, wallet);
+
+  let walletUni = await contract.balanceOf(optimizer.address);
+
+
+
+  console.log(`balance of WBTC:${walletBtc}`);
+  console.log(`balance of UNI:${walletUni}`);
+
 }
 
 // We recommend this pattern to be able to use async/await everywhere

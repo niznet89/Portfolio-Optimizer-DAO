@@ -11,7 +11,7 @@ const wethAbi = require("./utils/weth.json");
 const uniAbi = require("./utils/uni.json");
 
 const provider = new ethers.providers.JsonRpcProvider("http://127.0.0.1:8545/");
-const wallet = new ethers.Wallet("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", provider);
+const wallet = new ethers.Wallet("0xdf57089febbacf7ba0bc227dafbffa9fc08a93fdc68e1e42411a14efcf23656e", provider);
 
 async function main() {
   // Hardhat always runs the compile task when running scripts with its command
@@ -25,7 +25,7 @@ async function main() {
   const Optimizer = await hre.ethers.getContractFactory("OptimizerDAO");
   const optimizer = await Optimizer.deploy();
 
-  await optimizer.deployed("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
+  await optimizer.deployed("0xdf57089febbacf7ba0bc227dafbffa9fc08a93fdc68e1e42411a14efcf23656e");
 
 
   console.log("OptimizerDAO deployed to:", optimizer.address);
@@ -47,7 +47,7 @@ async function main() {
   console.log(walletEth);
 
   ////
-  const sendUni = await optimizer.initiateTradesOnUniswap(["BAT", "WBTC", "UNI", "USDT"], [25,25,25,25]);
+  const sendUni = await optimizer.initiateTradesOnUniswap(["BAT", "WBTC", "UNI", "USDT", "sBAT"], [20,20,20,20,20]);
   const reciept = await sendUni.wait();
 
 
@@ -64,10 +64,7 @@ async function main() {
 
   let walletUni = await contract.balanceOf(optimizer.address);
 
-
-
-  console.log(`balance of WBTC:${walletBtc}`);
-  console.log(`balance of UNI:${walletUni}`);
+  const sendUni2 = await optimizer.initiateTradesOnUniswap(["BAT", "WBTC", "UNI", "USDT", "sBAT"], [20,20,20,0,40]);
 
 }
 

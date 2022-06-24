@@ -35,6 +35,14 @@ interface WETH9 {
   function deposit() external payable;
 }
 
+interface ERC20short {
+  function mint(address _address, uint _amount) external;
+
+  function burn(address _address, uint _amount) external;
+
+  function balanceOf(address _account) external view returns (uint256);
+}
+
 interface IUniswapV2Router {
   function getAmountsOut(uint256 amountIn, address[] memory path)
     external
@@ -84,13 +92,22 @@ contract OptimizerDAO is ERC20 {
   ISwapRouter router = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
 
   mapping(string => address) private tokenAddresses;
-  // Address's included in mapping
+  mapping(string => address) private shortTokenAddresses;
+
+  // Address's included in mappings. 1st set is the longs & 2nd is shorts
   /**
   address private constant WETH = 0xc778417E063141139Fce010982780140Aa0cD5Ab;
   address private constant BAT = 0xDA5B056Cfb861282B4b59d29c9B395bcC238D29B;
   address private constant WBTC = 0x577D296678535e4903D59A4C929B718e1D575e0A;
   address private constant UNI = 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984;
   address private constant USDT = 0x2fb298bdbef468638ad6653ff8376575ea41e768;
+
+  sWETH = 0x982cd41387dd65e659279C4EFCF05c25c4B586D6
+  sBAT = 0xf760954e01e53c3f7F08733ca1dC62B14b4BF50e
+  sWBTC = 0xA18533Ba93407a54BB1bcaDB7e9f3D34e46039F9
+  sUNI = 0x95552cA5cc9f329E5376659eaD39F880307B7A13
+  sUSDT = 0x1c0b9527210B427ad9bdfF41bb3a3b78C9ceE7d9
+
   */
 
   //
@@ -121,8 +138,14 @@ contract OptimizerDAO is ERC20 {
     Proposal storage proposal = proposals.push();
     string[5] memory _tokens = ["WETH", "BAT", "WBTC", "UNI", "USDT"];
     address[5] memory _addresses = [0xc778417E063141139Fce010982780140Aa0cD5Ab, 0xDA5B056Cfb861282B4b59d29c9B395bcC238D29B, 0x577D296678535e4903D59A4C929B718e1D575e0A, 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984, 0x2fB298BDbeF468638AD6653FF8376575ea41e768];
+
+    string[5] memory _shortTokens = ["sWETH", "sBAT", "sWBTC", "sUNI", "sUSDT"];
+    address[5] memory _shortAddresses = [0x982cd41387dd65e659279C4EFCF05c25c4B586D6, 0xf760954e01e53c3f7F08733ca1dC62B14b4BF50e, 0xA18533Ba93407a54BB1bcaDB7e9f3D34e46039F9, 0x95552cA5cc9f329E5376659eaD39F880307B7A13, 0x1c0b9527210B427ad9bdfF41bb3a3b78C9ceE7d9];
+
+
     for (uint i = 0; i < _tokens.length; i++) {
       tokenAddresses[_tokens[i]] = _addresses[i];
+      shortTokenAddresses[_shortTokens[i]] = _shortAddresses[i];
     }
   }
 
@@ -240,18 +263,27 @@ contract OptimizerDAO is ERC20 {
   */
 
   function initiateTradesOnUniswap(string[] memory _assets, uint[] memory _percentage) public {
-
+    bytes32 wethRepresentation = keccak256(abi.encodePacked("WETH"));
 
     if (proposals.length > 1) {
       // 1. Sell off existing holdings
       for (uint i = 0; i < _assets.length; i++) {
-        _swap(tokenAddresses[_assets[i]], WETH, ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)), 0, address(this));
+        if (tokenAddresses[_assets[i]] != address(0)) {
+          if (ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)) > 0 || (keccak256(abi.encodePacked(_assets[i])) != wethRepresentation)) {
+            _swap(tokenAddresses[_assets[i]], WETH, ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)), 0, address(this));
+          }
+
+        }
+        else if (shortTokenAddresses[_assets[i]] != address(0) && ERC20short(shortTokenAddresses[_assets[i]]).balanceOf(address(this)) > 0) {
+          ERC20short(shortTokenAddresses[_assets[i]]).burn(address(this), ERC20short(shortTokenAddresses[_assets[i]]).balanceOf(address(this)));
+        }
       }
       // 2. Take a snapshot of the proceedings in WETH
       proposals[proposals.length - 1].endEth = WETH9(WETH).balanceOf(address(this));
       proposals[proposals.length - 1].endTime = block.timestamp;
 
       lastSnapshotEth = WETH9(WETH).balanceOf(address(this));
+
       // 3. Convert any Eth in treasury to WETH
       WETH9(WETH).deposit{value: address(this).balance}();
 
@@ -263,9 +295,18 @@ contract OptimizerDAO is ERC20 {
 
       // 5. Reallocate all WETH based on new weightings
       for (uint i = 0; i < _assets.length; i++) {
-        if (_percentage[i] != 0) {
-          uint allocation = (lastSnapshotEth * _percentage[i]) / 100;
-          _swap(WETH, tokenAddresses[_assets[i]], allocation, 0, address(this));
+        if (_percentage[i] != 0 || (keccak256(abi.encodePacked(_assets[i])) != wethRepresentation)) {
+          if (tokenAddresses[_assets[i]] != address(0) && _percentage[i] != 0) {
+            uint allocation = (lastSnapshotEth * _percentage[i]) / 100;
+            _swap(WETH, tokenAddresses[_assets[i]], allocation, 0, address(this));
+            console.log(_assets[i]);
+            console.log(ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)));
+          }
+          else if (shortTokenAddresses[_assets[i]] != address(0)) {
+            uint allocation = (lastSnapshotEth * _percentage[i]) / 100;
+            ERC20short(shortTokenAddresses[_assets[i]]).mint(address(this), allocation);
+          }
+
         }
       }
 
@@ -297,10 +338,20 @@ contract OptimizerDAO is ERC20 {
       */
       // 2. Take asset weightings and purchase assets
 
+
       for (uint i = 0; i < _assets.length; i++) {
-        if (_percentage[i] != 0) {
-          uint allocation = (wethBalance * _percentage[i]) / 100;
-          _swap(WETH, tokenAddresses[_assets[i]], allocation, 0, address(this));
+        if (_percentage[i] != 0 || (keccak256(abi.encodePacked(_assets[i])) != wethRepresentation)) {
+          if (tokenAddresses[_assets[i]] != address(0)) {
+            uint allocation = (wethBalance * _percentage[i]) / 100;
+            _swap(WETH, tokenAddresses[_assets[i]], allocation, 0, address(this));
+            console.log(_assets[i]);
+            console.log(ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)));
+          }
+          else if (shortTokenAddresses[_assets[i]] != address(0)) {
+            uint allocation = (wethBalance * _percentage[i]) / 100;
+            ERC20short(shortTokenAddresses[_assets[i]]).mint(address(this), allocation);
+          }
+
         }
       }
 

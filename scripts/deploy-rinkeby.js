@@ -30,45 +30,55 @@ async function main() {
 
   console.log("OptimizerDAO deployed to:", optimizer.address);
 
-  const join = await optimizer.joinDAO({ value: ethers.utils.parseEther("0.2") });
+  //const join = await optimizer.joinDAO({ value: ethers.utils.parseEther("0.2") });
+
+  /// sBAT
+
+  // const Bat = await hre.ethers.getContractFactory("ShortBat");
+  // const bat = await Bat.deploy();
+
+  // await bat.deployed("ffd569bc97f8d6cfb04a3a17ba634d14ae07e5bbd669ac9f0a334c753c9662c2");
 
 
+  // console.log("sBAT deployed to:", bat.address);
+  // ///sBTC
+
+  // const Btc = await hre.ethers.getContractFactory("ShortBtc");
+  // const btc = await Btc.deploy();
+
+  // await btc.deployed("ffd569bc97f8d6cfb04a3a17ba634d14ae07e5bbd669ac9f0a334c753c9662c2");
 
 
+  // console.log("sBTC deployed to:", btc.address);
+  // /// sUNI
 
-  // const weth = "0xc778417E063141139Fce010982780140Aa0cD5Ab";
+  // const Uni = await hre.ethers.getContractFactory("ShortUni");
+  // const uni = await Uni.deploy();
 
-  // const contract1 = new ethers.Contract(weth, wethAbi, wallet);
-
-  // console.log("in the way");
-
-  // let walletEth = await contract1.balanceOf(optimizer.address);
-
-  // console.log(walletEth);
-
-  ////
-  // const sendUni = await optimizer.initiateTradesOnUniswap(["BAT", "WBTC", "UNI", "USDT"], [25,25,25,25]);
-  // const reciept = await sendUni.wait();
+  // await uni.deployed("ffd569bc97f8d6cfb04a3a17ba634d14ae07e5bbd669ac9f0a334c753c9662c2");
 
 
-  // //console.log(reciept);
-  // const wbtc = "0x0014F450B8Ae7708593F4A46F8fa6E5D50620F96";
+  // console.log("sUNI deployed to:", uni.address);
 
-  // const contract = new ethers.Contract(wbtc, wbtcAbi, wallet);
+  // /// sUSDT
 
-  // let walletBtc = await contract.balanceOf(optimizer.address);
+  // const Usd = await hre.ethers.getContractFactory("ShortUsd");
+  // const usd = await Usd.deploy();
 
-  // const uni = "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984";
-
-  // const uniContract = new ethers.Contract(uni, uniAbi, wallet);
-
-  // let walletUni = await contract.balanceOf(optimizer.address);
+  // await usd.deployed("ffd569bc97f8d6cfb04a3a17ba634d14ae07e5bbd669ac9f0a334c753c9662c2");
 
 
+  // console.log("sUSD deployed to:", usd.address);
 
-  // console.log(`balance of WBTC:${walletBtc}`);
-  // console.log(`balance of UNI:${walletUni}`);
+  // /// sETH
 
+  // const Eth = await hre.ethers.getContractFactory("ShortEth");
+  // const eth = await Eth.deploy();
+
+  // await eth.deployed("ffd569bc97f8d6cfb04a3a17ba634d14ae07e5bbd669ac9f0a334c753c9662c2");
+
+
+  // console.log("sETH deployed to:", eth.address);
 }
 
 // We recommend this pattern to be able to use async/await everywhere

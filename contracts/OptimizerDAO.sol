@@ -98,8 +98,10 @@ contract OptimizerDAO is ERC20 {
 
   // Proposal struct of token, expected performance and confidence level.
   struct Proposal {
-    uint date;
-    uint endDate;
+    uint startTime;
+    uint endTime;
+    uint startEth;
+    uint endEth;
     string[] tokens;
     // Maps Token (i.e 'btc') to array
     mapping(string => uint[]) numOfUserTokens;
@@ -117,7 +119,6 @@ contract OptimizerDAO is ERC20 {
   constructor() ERC20("Optimizer DAO Token", "ODP") {
     // On DAO creation, a vote/proposal is created which automatically creates a new one every x amount of time
     Proposal storage proposal = proposals.push();
-    proposal.date = block.timestamp;
     string[5] memory _tokens = ["WETH", "BAT", "WBTC", "UNI", "USDT"];
     address[5] memory _addresses = [0xc778417E063141139Fce010982780140Aa0cD5Ab, 0xDA5B056Cfb861282B4b59d29c9B395bcC238D29B, 0x577D296678535e4903D59A4C929B718e1D575e0A, 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984, 0x2fB298BDbeF468638AD6653FF8376575ea41e768];
     for (uint i = 0; i < _tokens.length; i++) {
@@ -244,25 +245,32 @@ contract OptimizerDAO is ERC20 {
     if (proposals.length > 1) {
       // 1. Sell off existing holdings
       for (uint i = 0; i < _assets.length; i++) {
-        // Asset swapping from, to WETH, transfer whole balance, recipient is the SC
         _swap(tokenAddresses[_assets[i]], WETH, ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)), 0, address(this));
       }
       // 2. Take a snapshot of the proceedings in WETH
-      lastSnapshotEth = WETH9(WETH).balanceOf(address(this));
+      proposals[proposals.length - 1].endEth = WETH9(WETH).balanceOf(address(this));
+      proposals[proposals.length - 1].endTime = block.timestamp;
 
+      lastSnapshotEth = WETH9(WETH).balanceOf(address(this));
       // 3. Convert any Eth in treasury to WETH
       WETH9(WETH).deposit{value: address(this).balance}();
 
-      // 4. Reallocate all WETH based on new weightings
+      // 4. Create new proposal & input starting Eth for proposal
+      Proposal storage newProposal = proposals.push();
+      newProposal.startTime = block.timestamp;
+
+      proposals[proposals.length - 1].startEth = WETH9(WETH).balanceOf(address(this));
+
+      // 5. Reallocate all WETH based on new weightings
       for (uint i = 0; i < _assets.length; i++) {
-        uint allocation = _percentage[i] * lastSnapshotEth;
-        _swap(WETH, tokenAddresses[_assets[i]], allocation, 0, address(this));
+        if (_percentage[i] != 0) {
+          uint allocation = (lastSnapshotEth * _percentage[i]) / 100;
+          _swap(WETH, tokenAddresses[_assets[i]], allocation, 0, address(this));
+        }
       }
 
 
-      // 4. Create new proposal
-      Proposal storage newProposal = proposals.push();
-      newProposal.date = block.timestamp;
+
 
     } else {
       // 1. If first Proposal, convert all Eth to WETH
@@ -271,7 +279,10 @@ contract OptimizerDAO is ERC20 {
       WETH9(WETH).deposit{value: address(this).balance}();
 
       uint wethBalance = WETH9(WETH).balanceOf(address(this));
-      console.log(wethBalance);
+
+      // Snapshot captured of WETH at beggining of proposal w/ timestamp
+      proposals[proposals.length - 1].startTime = block.timestamp;
+      proposals[proposals.length - 1].startEth = wethBalance;
 
       /**
       (bool success, ) = WETH9(WETH).call{value: address(this).balance}(abi.encodeWithSignature("deposit()"));
@@ -287,17 +298,14 @@ contract OptimizerDAO is ERC20 {
       // 2. Take asset weightings and purchase assets
 
       for (uint i = 0; i < _assets.length; i++) {
-        uint allocation = (wethBalance * _percentage[i]) / 100;
-        console.log("allocation:");
-        console.log(allocation);
-        _swap(WETH, tokenAddresses[_assets[i]], allocation, 0, address(this));
-        console.log(_assets[i]);
-        console.log(ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)));
+        if (_percentage[i] != 0) {
+          uint allocation = (wethBalance * _percentage[i]) / 100;
+          _swap(WETH, tokenAddresses[_assets[i]], allocation, 0, address(this));
+        }
       }
 
       // 3. Create new proposal
       Proposal storage newProposal = proposals.push();
-      newProposal.date = block.timestamp;
 
     }
 

@@ -70,6 +70,10 @@ async function main() {
 
   console.log(data);
 
+  const proposals = await optimizer.proposals();
+
+  console.log("Length of proposals:", proposals);
+
 }
 
 // We recommend this pattern to be able to use async/await everywhere

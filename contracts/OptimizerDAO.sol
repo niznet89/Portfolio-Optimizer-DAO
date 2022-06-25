@@ -120,6 +120,8 @@ contract OptimizerDAO is ERC20 {
     uint startEth;
     uint endEth;
     string[] tokens;
+    uint[] qtyOfTokensAcq;
+    uint[] tokensWeightings;
     // Maps Token (i.e 'btc') to array
     mapping(string => uint[]) numOfUserTokens;
     // Maps Token string to array of total token amount
@@ -300,12 +302,17 @@ contract OptimizerDAO is ERC20 {
           if (tokenAddresses[_assets[i]] != address(0) && _percentage[i] != 0) {
             uint allocation = (lastSnapshotEth * _percentage[i]) / 100;
             _swap(WETH, tokenAddresses[_assets[i]], allocation, 0, address(this));
+            proposals[proposals.length - 1].tokens.push(_assets[i]);
+            proposals[proposals.length - 1].qtyOfTokensAcq.push(ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)));
+            proposals[proposals.length - 1].tokensWeightings.push(_percentage[i]);
             console.log(_assets[i]);
             console.log(ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)));
           }
           else if (shortTokenAddresses[_assets[i]] != address(0)) {
             uint allocation = (lastSnapshotEth * _percentage[i]) / 100;
             ERC20short(shortTokenAddresses[_assets[i]]).mint(address(this), allocation);
+            proposals[proposals.length - 1].qtyOfTokensAcq.push(ERC20short(tokenAddresses[_assets[i]]).balanceOf(address(this)));
+            proposals[proposals.length - 1].tokensWeightings.push(_percentage[i]);
           }
 
         }
@@ -338,27 +345,34 @@ contract OptimizerDAO is ERC20 {
       console.log(balance);
       */
       // 2. Take asset weightings and purchase assets
-
+      proposals[proposals.length - 1].tokens.push("WETH");
+      proposals[proposals.length - 1].qtyOfTokensAcq.push(0);
 
       for (uint i = 0; i < _assets.length; i++) {
         assetWeightings[_assets[i]] = _percentage[i];
+
         if (_percentage[i] != 0 && (keccak256(abi.encodePacked(_assets[i])) != wethRepresentation)) {
           if (tokenAddresses[_assets[i]] != address(0)) {
             uint allocation = (wethBalance * _percentage[i]) / 100;
             _swap(WETH, tokenAddresses[_assets[i]], allocation, 0, address(this));
+            proposals[proposals.length - 1].tokens.push(_assets[i]);
+            proposals[proposals.length - 1].qtyOfTokensAcq.push(ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)));
+            proposals[proposals.length - 1].tokensWeightings.push(_percentage[i]);
             console.log(_assets[i]);
             console.log(ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)));
           }
           else if (shortTokenAddresses[_assets[i]] != address(0)) {
             uint allocation = (wethBalance * _percentage[i]) / 100;
             ERC20short(shortTokenAddresses[_assets[i]]).mint(address(this), allocation);
+            proposals[proposals.length - 1].tokens.push(_assets[i]);
+            proposals[proposals.length - 1].qtyOfTokensAcq.push(ERC20short(tokenAddresses[_assets[i]]).balanceOf(address(this)));
+            proposals[proposals.length - 1].tokensWeightings.push(_percentage[i]);
           }
 
         }
+
       }
 
-      // 3. Create new proposal
-      Proposal storage newProposal = proposals.push();
 
     }
 
@@ -424,6 +438,10 @@ contract OptimizerDAO is ERC20 {
       }
       return (_tokens, actualHoldings,fundAssetWeightings);
     }
+
+  function lengthOfProposals() public view returns(uint256) {
+    return proposals.length;
+  }
 
 
   modifier onlyMember {

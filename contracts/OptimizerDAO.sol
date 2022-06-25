@@ -404,14 +404,14 @@ contract OptimizerDAO is ERC20 {
       IUniswapV2Router(UNISWAP_V2_ROUTER).swapExactTokensForTokens(_amountIn, _amountOutMin, path, _to, block.timestamp);
     }
 
-    function getHoldingsData() public view returns(string[10] memory, uint[] memory, uint[] memory) {
+    function getHoldingsData() public view returns(string[10] memory, uint[10] memory, uint[10] memory) {
       string[10] memory _tokens = ["WETH", "BAT", "WBTC", "UNI", "USDT", "sWETH", "sBAT", "sWBTC", "sUNI", "sUSDT"];
-      uint[] memory actualHoldings;
-      uint[] memory fundAssetWeightings;
+      uint[10] memory actualHoldings;
+      uint[10] memory fundAssetWeightings;
       // Percentage of fund taken from storage
       for (uint i = 0; i < _tokens.length; i++) {
         fundAssetWeightings[i] = assetWeightings[_tokens[i]];
-        if (tokenAddresses[_tokens[i]] != address(0)) {
+        if (tokenAddresses[_tokens[i]] != address(0) && tokenAddresses[_tokens[i]] != WETH) {
           actualHoldings[i] = ERC20(tokenAddresses[_tokens[i]]).balanceOf(address(this));
         } // if the token is WETH, which is not an ERC20 contract
         else if (tokenAddresses[_tokens[i]] == WETH) {

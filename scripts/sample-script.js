@@ -66,6 +66,10 @@ async function main() {
 
   const sendUni2 = await optimizer.initiateTradesOnUniswap(["BAT", "WBTC", "UNI", "USDT", "sBAT"], [20,20,20,0,40]);
 
+  const data = await optimizer.getHoldingsData();
+
+  console.log(data);
+
 }
 
 // We recommend this pattern to be able to use async/await everywhere

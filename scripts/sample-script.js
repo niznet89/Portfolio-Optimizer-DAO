@@ -64,7 +64,7 @@ async function main() {
 
   let walletUni = await contract.balanceOf(optimizer.address);
 
-  const sendUni2 = await optimizer.initiateTradesOnUniswap(["BAT", "WBTC", "UNI", "USDT", "sBAT"], [20,20,20,0,40]);
+  const sendUni2 = await optimizer.initiateTradesOnUniswap(["WETH", "BAT", "WBTC", "UNI", "USDT", "sWETH", "sBAT", "sWBTC", "sUNI", "sUSDT"], [10,10,10,10,10,0,0,0,0,0]);
 
   const data = await optimizer.getHoldingsData();
 

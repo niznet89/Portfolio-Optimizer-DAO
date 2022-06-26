@@ -293,11 +293,17 @@ contract OptimizerDAO is ERC20 {
       Proposal storage newProposal = proposals.push();
       newProposal.startTime = block.timestamp;
 
-      proposals[proposals.length - 1].startEth = WETH9(WETH).balanceOf(address(this));
+      newProposal.startEth = WETH9(WETH).balanceOf(address(this));
+
 
       // 5. Reallocate all WETH based on new weightings
       for (uint i = 0; i < _assets.length; i++) {
         assetWeightings[_assets[i]] = _percentage[i];
+        if (tokenAddresses[_assets[i]] == WETH) {
+            newProposal.tokens.push("WETH");
+            newProposal.qtyOfTokensAcq.push(WETH9(WETH).balanceOf(address(this)));
+            newProposal.tokensWeightings.push(_percentage[i]);
+          }
         if (_percentage[i] != 0 && tokenAddresses[_assets[i]] != tokenAddresses["WETH"]) {
           if (tokenAddresses[_assets[i]] != address(0) && _percentage[i] != 0) {
             uint allocation = (lastSnapshotEth * _percentage[i]) / 100;
@@ -305,13 +311,14 @@ contract OptimizerDAO is ERC20 {
             proposals[proposals.length - 1].tokens.push(_assets[i]);
             proposals[proposals.length - 1].qtyOfTokensAcq.push(ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)));
             proposals[proposals.length - 1].tokensWeightings.push(_percentage[i]);
-            console.log(_assets[i]);
-            console.log(ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)));
+            //console.log(_assets[i]);
+            //console.log(ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)));
           }
           else if (shortTokenAddresses[_assets[i]] != address(0)) {
             uint allocation = (lastSnapshotEth * _percentage[i]) / 100;
             ERC20short(shortTokenAddresses[_assets[i]]).mint(address(this), allocation);
-            proposals[proposals.length - 1].qtyOfTokensAcq.push(ERC20short(tokenAddresses[_assets[i]]).balanceOf(address(this)));
+            proposals[proposals.length - 1].tokens.push(_assets[i]);
+            proposals[proposals.length - 1].qtyOfTokensAcq.push(ERC20short(shortTokenAddresses[_assets[i]]).balanceOf(address(this)));
             proposals[proposals.length - 1].tokensWeightings.push(_percentage[i]);
           }
 
@@ -345,12 +352,15 @@ contract OptimizerDAO is ERC20 {
       console.log(balance);
       */
       // 2. Take asset weightings and purchase assets
-      proposals[proposals.length - 1].tokens.push("WETH");
-      proposals[proposals.length - 1].qtyOfTokensAcq.push(0);
+
 
       for (uint i = 0; i < _assets.length; i++) {
         assetWeightings[_assets[i]] = _percentage[i];
-
+        if (tokenAddresses[_assets[i]] == WETH) {
+            proposals[proposals.length - 1].tokens.push("WETH");
+            proposals[proposals.length - 1].qtyOfTokensAcq.push(WETH9(WETH).balanceOf(address(this)));
+            proposals[proposals.length - 1].tokensWeightings.push(_percentage[i]);
+          }
         if (_percentage[i] != 0 && (keccak256(abi.encodePacked(_assets[i])) != wethRepresentation)) {
           if (tokenAddresses[_assets[i]] != address(0)) {
             uint allocation = (wethBalance * _percentage[i]) / 100;
@@ -358,14 +368,14 @@ contract OptimizerDAO is ERC20 {
             proposals[proposals.length - 1].tokens.push(_assets[i]);
             proposals[proposals.length - 1].qtyOfTokensAcq.push(ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)));
             proposals[proposals.length - 1].tokensWeightings.push(_percentage[i]);
-            console.log(_assets[i]);
-            console.log(ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)));
+            //console.log(_assets[i]);
+            //console.log(ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)));
           }
           else if (shortTokenAddresses[_assets[i]] != address(0)) {
             uint allocation = (wethBalance * _percentage[i]) / 100;
             ERC20short(shortTokenAddresses[_assets[i]]).mint(address(this), allocation);
             proposals[proposals.length - 1].tokens.push(_assets[i]);
-            proposals[proposals.length - 1].qtyOfTokensAcq.push(ERC20short(tokenAddresses[_assets[i]]).balanceOf(address(this)));
+            proposals[proposals.length - 1].qtyOfTokensAcq.push(ERC20short(shortTokenAddresses[_assets[i]]).balanceOf(address(this)));
             proposals[proposals.length - 1].tokensWeightings.push(_percentage[i]);
           }
 
@@ -418,24 +428,30 @@ contract OptimizerDAO is ERC20 {
       IUniswapV2Router(UNISWAP_V2_ROUTER).swapExactTokensForTokens(_amountIn, _amountOutMin, path, _to, block.timestamp);
     }
 
-    function getHoldingsData() public view returns(string[10] memory, uint[10] memory, uint[10] memory) {
+    function getHoldingsDataOfProposal(uint _index) public view returns(string[10] memory, uint[10] memory, uint[10] memory) {
       string[10] memory _tokens = ["WETH", "BAT", "WBTC", "UNI", "USDT", "sWETH", "sBAT", "sWBTC", "sUNI", "sUSDT"];
       uint[10] memory actualHoldings;
       uint[10] memory fundAssetWeightings;
-      // Percentage of fund taken from storage
-      for (uint i = 0; i < _tokens.length; i++) {
-        fundAssetWeightings[i] = assetWeightings[_tokens[i]];
+
+      fundAssetWeightings[0] = proposals[_index].tokensWeightings[0];
+      actualHoldings[0] = proposals[_index].qtyOfTokensAcq[0];
+
+      for (uint i = 1; i < _tokens.length; i++) {
+        fundAssetWeightings[i] = proposals[_index].tokensWeightings[i];
         if (tokenAddresses[_tokens[i]] != address(0) && tokenAddresses[_tokens[i]] != WETH) {
-          actualHoldings[i] = ERC20(tokenAddresses[_tokens[i]]).balanceOf(address(this));
-        } // if the token is WETH, which is not an ERC20 contract
-        else if (tokenAddresses[_tokens[i]] == WETH) {
-          actualHoldings[i] = proposals[proposals.length -1].startEth;
+          console.log(_tokens[i]);
+          console.log(proposals[_index].qtyOfTokensAcq[i]);
+          actualHoldings[i] = proposals[_index].qtyOfTokensAcq[i];
+          console.log("long tokens");
         }
         else if (shortTokenAddresses[_tokens[i]] != address(0)) {
-          actualHoldings[i] = ERC20short(shortTokenAddresses[_tokens[i]]).balanceOf(address(this));
+          console.log(_tokens[i]);
+          console.log(proposals[_index].qtyOfTokensAcq[i]);
+          actualHoldings[i] = proposals[_index].qtyOfTokensAcq[i];
+          console.log("short tokens");
         }
-
       }
+      console.log(actualHoldings[0]);
       return (_tokens, actualHoldings,fundAssetWeightings);
     }
 

@@ -269,6 +269,8 @@ contract OptimizerDAO is ERC20 {
 
     if (proposals.length > 1) {
       // 1. Sell off existing holdings
+
+
       for (uint i = 0; i < _assets.length; i++) {
         if (tokenAddresses[_assets[i]] != address(0)) {
           if (ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)) > 0 && (keccak256(abi.encodePacked(_assets[i])) != wethRepresentation)) {
@@ -281,51 +283,54 @@ contract OptimizerDAO is ERC20 {
         }
       }
       // 2. Take a snapshot of the proceedings in WETH
-      proposals[proposals.length - 1].endEth = WETH9(WETH).balanceOf(address(this));
-      proposals[proposals.length - 1].endTime = block.timestamp;
+      proposals[proposals.length - 2].endEth = WETH9(WETH).balanceOf(address(this));
+      proposals[proposals.length - 2].endTime = block.timestamp;
+      proposals[proposals.length - 1].startEth = WETH9(WETH).balanceOf(address(this));
+      proposals[proposals.length - 1].startTime = block.timestamp;
 
       lastSnapshotEth = WETH9(WETH).balanceOf(address(this));
 
       // 3. Convert any Eth in treasury to WETH
       WETH9(WETH).deposit{value: address(this).balance}();
 
-      // 4. Create new proposal & input starting Eth for proposal
-      Proposal storage newProposal = proposals.push();
-      newProposal.startTime = block.timestamp;
 
-      newProposal.startEth = WETH9(WETH).balanceOf(address(this));
+      console.log("Proposals length:");
+      console.log(proposals.length);
 
 
       // 5. Reallocate all WETH based on new weightings
       for (uint i = 0; i < _assets.length; i++) {
         assetWeightings[_assets[i]] = _percentage[i];
+        proposals[proposals.length - 1].tokensWeightings.push(_percentage[i]);
         if (tokenAddresses[_assets[i]] == WETH) {
-            newProposal.tokens.push("WETH");
-            newProposal.qtyOfTokensAcq.push(WETH9(WETH).balanceOf(address(this)));
-            newProposal.tokensWeightings.push(_percentage[i]);
+            proposals[proposals.length - 1].tokens.push("WETH");
+            proposals[proposals.length - 1].qtyOfTokensAcq.push(WETH9(WETH).balanceOf(address(this)));
+
           }
-        if (_percentage[i] != 0 && tokenAddresses[_assets[i]] != tokenAddresses["WETH"]) {
+        if (_percentage[i] != 0 && (keccak256(abi.encodePacked(_assets[i])) != wethRepresentation)) {
           if (tokenAddresses[_assets[i]] != address(0) && _percentage[i] != 0) {
             uint allocation = (lastSnapshotEth * _percentage[i]) / 100;
             _swap(WETH, tokenAddresses[_assets[i]], allocation, 0, address(this));
             proposals[proposals.length - 1].tokens.push(_assets[i]);
             proposals[proposals.length - 1].qtyOfTokensAcq.push(ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)));
-            proposals[proposals.length - 1].tokensWeightings.push(_percentage[i]);
-            //console.log(_assets[i]);
+
+            console.log("made it");
             //console.log(ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)));
           }
-          else if (shortTokenAddresses[_assets[i]] != address(0)) {
+          if (shortTokenAddresses[_assets[i]] != address(0)) {
             uint allocation = (lastSnapshotEth * _percentage[i]) / 100;
             ERC20short(shortTokenAddresses[_assets[i]]).mint(address(this), allocation);
             proposals[proposals.length - 1].tokens.push(_assets[i]);
             proposals[proposals.length - 1].qtyOfTokensAcq.push(ERC20short(shortTokenAddresses[_assets[i]]).balanceOf(address(this)));
-            proposals[proposals.length - 1].tokensWeightings.push(_percentage[i]);
+
+            console.log(proposals[proposals.length - 1].tokens[i]);
+            console.log(proposals[proposals.length - 1].tokensWeightings[i]);
           }
 
         }
       }
 
-
+      Proposal storage newProposal = proposals.push();
 
 
     } else {
@@ -356,10 +361,11 @@ contract OptimizerDAO is ERC20 {
 
       for (uint i = 0; i < _assets.length; i++) {
         assetWeightings[_assets[i]] = _percentage[i];
+        proposals[proposals.length - 1].tokensWeightings.push(_percentage[i]);
         if (tokenAddresses[_assets[i]] == WETH) {
             proposals[proposals.length - 1].tokens.push("WETH");
             proposals[proposals.length - 1].qtyOfTokensAcq.push(WETH9(WETH).balanceOf(address(this)));
-            proposals[proposals.length - 1].tokensWeightings.push(_percentage[i]);
+
           }
         if (_percentage[i] != 0 && (keccak256(abi.encodePacked(_assets[i])) != wethRepresentation)) {
           if (tokenAddresses[_assets[i]] != address(0)) {
@@ -367,23 +373,19 @@ contract OptimizerDAO is ERC20 {
             _swap(WETH, tokenAddresses[_assets[i]], allocation, 0, address(this));
             proposals[proposals.length - 1].tokens.push(_assets[i]);
             proposals[proposals.length - 1].qtyOfTokensAcq.push(ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)));
-            proposals[proposals.length - 1].tokensWeightings.push(_percentage[i]);
-            //console.log(_assets[i]);
-            //console.log(ERC20(tokenAddresses[_assets[i]]).balanceOf(address(this)));
           }
           else if (shortTokenAddresses[_assets[i]] != address(0)) {
             uint allocation = (wethBalance * _percentage[i]) / 100;
             ERC20short(shortTokenAddresses[_assets[i]]).mint(address(this), allocation);
             proposals[proposals.length - 1].tokens.push(_assets[i]);
             proposals[proposals.length - 1].qtyOfTokensAcq.push(ERC20short(shortTokenAddresses[_assets[i]]).balanceOf(address(this)));
-            proposals[proposals.length - 1].tokensWeightings.push(_percentage[i]);
           }
 
         }
 
       }
 
-
+      Proposal storage newProposal = proposals.push();
     }
 
   }
@@ -436,15 +438,17 @@ contract OptimizerDAO is ERC20 {
       fundAssetWeightings[0] = proposals[_index].tokensWeightings[0];
       actualHoldings[0] = proposals[_index].qtyOfTokensAcq[0];
 
+      console.log(proposals[_index].tokens.length);
+
       for (uint i = 1; i < _tokens.length; i++) {
         fundAssetWeightings[i] = proposals[_index].tokensWeightings[i];
-        if (tokenAddresses[_tokens[i]] != address(0) && tokenAddresses[_tokens[i]] != WETH) {
+        if (tokenAddresses[_tokens[i]] != address(0) && tokenAddresses[_tokens[i]] != WETH && proposals[_index].tokensWeightings[i] != 0) {
           console.log(_tokens[i]);
           console.log(proposals[_index].qtyOfTokensAcq[i]);
           actualHoldings[i] = proposals[_index].qtyOfTokensAcq[i];
           console.log("long tokens");
         }
-        else if (shortTokenAddresses[_tokens[i]] != address(0)) {
+        else if (shortTokenAddresses[_tokens[i]] != address(0) && proposals[_index].tokensWeightings[i] != 0) {
           console.log(_tokens[i]);
           console.log(proposals[_index].qtyOfTokensAcq[i]);
           actualHoldings[i] = proposals[_index].qtyOfTokensAcq[i];

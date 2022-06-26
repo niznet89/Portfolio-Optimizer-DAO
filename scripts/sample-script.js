@@ -66,13 +66,17 @@ async function main() {
 
   const sendUni2 = await optimizer.initiateTradesOnUniswap(["WETH", "BAT", "WBTC", "UNI", "USDT", "sWETH", "sBAT", "sWBTC", "sUNI", "sUSDT"], [10,10,10,10,10,0,0,0,0,0]);
 
-  const data = await optimizer.getHoldingsDataOfProposal(0);
+  //console.log(sendUni2);
+
+  const proposals = await optimizer.lengthOfProposals();
+
+  console.log("Length of proposals:", proposals);
+
+  const data = await optimizer.getHoldingsDataOfProposal(1);
 
   console.log(data);
 
-  const proposals = await optimizer.proposals(0);
-
-  console.log("Length of proposals:", proposals);
+  console.log(await optimizer.proposals(0));
 
 }
 

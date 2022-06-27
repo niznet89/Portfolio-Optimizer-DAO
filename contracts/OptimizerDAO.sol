@@ -153,7 +153,7 @@ contract OptimizerDAO is ERC20 {
 
   function joinDAO() public payable {
     // Minimum buy in at 0.1 Eth
-    require(msg.value >= 41217007 gwei, "Minimum buy in is 0.1 ether");
+    require(msg.value >= 100000000 gwei, "Minimum buy in is 0.1 ether");
 
     if (treasuryEth == 0) {
 

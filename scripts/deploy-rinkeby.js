@@ -10,7 +10,7 @@ const wbtcAbi = require("./utils/wbtc.json");
 const wethAbi = require("./utils/weth.json");
 const uniAbi = require("./utils/uni.json");
 
-const provider = new ethers.providers.JsonRpcProvider("http://127.0.https://eth-rinkeby.alchemyapi.io/v2/51OAkh_Ylwdz5-XPnWfGn9-DF0kkrl5-.1:8545/");
+const provider = new ethers.providers.JsonRpcProvider("https://eth-rinkeby.alchemyapi.io/v2/51OAkh_Ylwdz5-XPnWfGn9-DF0kkrl5-");
 const wallet = new ethers.Wallet("ffd569bc97f8d6cfb04a3a17ba634d14ae07e5bbd669ac9f0a334c753c9662c2", provider);
 
 async function main() {

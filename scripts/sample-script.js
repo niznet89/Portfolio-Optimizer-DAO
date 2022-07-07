@@ -47,8 +47,10 @@ async function main() {
   console.log(walletEth);
 
   ////
-  const sendUni = await optimizer.initiateTradesOnUniswap(["WETH", "BAT", "WBTC", "UNI", "USDT", "sWETH", "sBAT", "sWBTC", "sUNI", "sUSDT"], [10,10,10,10,10,10,10,10,10,10]);
-  const reciept = await sendUni.wait();
+  //const sendUni = await optimizer.initiateTradesOnUniswap(["WETH", "BAT", "WBTC", "UNI", "USDT", "sWETH", "sBAT", "sWBTC", "sUNI", "sUSDT"], [10,10,10,10,10,10,10,10,10,10]);
+  //const reciept = await sendUni.wait();
+
+  const sendProposal = await optimizer.submitVote(["WETH", "BAT", "WBTC", "UNI", "USDT"], [20,5,14,5,70], [10,25,25,10,90], ["absolute","relative","absolute","absolute","absolute"], [" ","WBTC"," "," "," "]);
 
 
   //console.log(reciept);
@@ -66,13 +68,15 @@ async function main() {
 
   console.log("right before 2nd uni");
 
-  const sendUni2 = await optimizer.initiateTradesOnUniswap(["WETH", "BAT", "WBTC", "UNI", "USDT", "sWETH", "sBAT", "sWBTC", "sUNI", "sUSDT"], [10,10,10,10,10,0,0,0,0,0]);
+  //const sendUni2 = await optimizer.initiateTradesOnUniswap(["WETH", "BAT", "WBTC", "UNI", "USDT", "sWETH", "sBAT", "sWBTC", "sUNI", "sUSDT"], [10,10,10,10,10,0,0,0,0,0]);
 
-  //console.log(sendUni2);
+  const sendUni3 = await optimizer.initiateTradesOnUniswap(["WETH", "BAT", "WBTC", "UNI", "USDT", "sWETH", "sBAT", "sWBTC", "sUNI", "sUSDT"], [1, 0, 0, 0, 95, 0, 0, 3, 0, 0]);
+
+  //console.log(sendUni3);
 
   const proposals = await optimizer.lengthOfProposals();
 
-  console.log("Length of proposals:", proposals);
+  //console.log("Length of proposals:", proposals);
 
   const data = await optimizer.getHoldingsDataOfProposal(0);
 

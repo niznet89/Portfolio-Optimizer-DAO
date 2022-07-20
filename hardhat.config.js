@@ -1,10 +1,10 @@
 require('@nomiclabs/hardhat-waffle');
-require('dotenv').config();
+require('dotenv').config({path:__dirname+'/.env'})
 require("@nomiclabs/hardhat-etherscan");
 
 module.exports = {
   solidity: {
-    version: "0.8.6",
+    version: "0.8.12",
     settings: {
       optimizer: {
         enabled: true,
@@ -15,11 +15,12 @@ module.exports = {
   networks: {
     rinkeby: {
       url: "https://eth-rinkeby.alchemyapi.io/v2/51OAkh_Ylwdz5-XPnWfGn9-DF0kkrl5-",
-      accounts: [`0x${process.env.RINKEBY_PRIVATE_KEY}`],
+      accounts: [`${process.env.RINKEBY_PRIVATE_KEY}`],
     },
     hardhat: {
       forking: {
         url: "https://eth-rinkeby.alchemyapi.io/v2/51OAkh_Ylwdz5-XPnWfGn9-DF0kkrl5-",
+        chainId: 31337,
       }
     }
   },
